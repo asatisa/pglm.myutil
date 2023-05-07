@@ -1,4 +1,4 @@
-module pglmmyutil
+module github.com/asatisa/pglmmyutil
 
 go 1.20
 
