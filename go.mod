@@ -1,4 +1,4 @@
-module myutil
+module pglmmyutil
 
 go 1.20
 

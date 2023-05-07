@@ -20,6 +20,9 @@ const AppIni string = "app.ini"
 
 var isInitialize bool = false
 
+func GetVersion() string {
+	return version
+}
 func GetExecDir() (exPath string) {
 	path, err := os.Executable() //os.Getwd() //os.Executable()
 	if err != nil {
