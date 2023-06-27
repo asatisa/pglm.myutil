@@ -2,41 +2,54 @@ package pglmmyutil
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"syscall"
 	"unsafe"
 
 	"github.com/vaughan0/go-ini"
 )
 
-const version = "1.0.0.0"
-
 // Constant of Application
-const AppIni string = "app.ini"
+const APP_INI string = "app.ini"
+const version = "1.0.0.01" //Update version of AutoCorrectDistance 4_1
 
 var isInitialize bool = false
 
 func GetVersion() string {
 	return version
 }
-func GetExecDir() (exPath string) {
-	path, err := os.Executable() //os.Getwd() //os.Executable()
-	if err != nil {
-		log.Println(err)
+
+// //////////////////////////////////////////////////////////////////////////////////////////////////////
+// Initialization modules
+// /////////////////////////////////////////////////////////////////////////////////////////////////////
+func initializeMyUtil() bool {
+	//fmt.Println("Init: " + strconv.FormatBool(isInitialize))
+	if isInitialize {
+		return true
 	}
-	exPath = filepath.Dir(path)
-	//fmt.Println("my path: " + exPath)
-	return
+	if !FileExist(APP_INI) {
+		isInitialize = false
+		panic("File INI '" + APP_INI + "' is not exist!")
+	} else {
+		isInitialize = true
+		return true
+	}
+
 }
 
+// /////////////////////////////////////////////////////////////////////////////////////////////////////
+// Initialize function and Configuration declarations
+// /////////////////////////////////////////////////////////////////////////////////////////////////////
 func ReadINI(section string, key string) (value string) {
 	initializeMyUtil()
 	//var err error
-	file, err := ini.LoadFile(AppIni)
+	file, err := ini.LoadFile(APP_INI)
 	if err != nil {
 		log.Println(err)
 	}
@@ -47,15 +60,21 @@ func ReadINI(section string, key string) (value string) {
 	return
 }
 
-/*
-func fileExists(filename string) bool {
-	info, err := os.Stat(filename)
-	if os.IsNotExist(err) {
-		return false
+// /////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// /////////////////////////////////////////////////////////////////////////////////////////////////////
+// File Management Functions
+// /////////////////////////////////////////////////////////////////////////////////////////////////////
+
+func GetExecDir() (exPath string) {
+	path, err := os.Executable() //os.Getwd() //os.Executable()
+	if err != nil {
+		log.Println(err)
 	}
-	return !info.IsDir()
+	exPath = filepath.Dir(path)
+	//fmt.Println("my path: " + exPath)
+	return
 }
-*/
 
 // Check file is exist.
 func FileExist(filename string) bool {
@@ -68,6 +87,104 @@ func FileExist(filename string) bool {
 	}
 }
 
+func CopyFile(src string, dest string) error {
+	srcFile, err := os.Open(src)
+	if err != nil {
+		log.Fatal(err)
+		return err
+	}
+	defer srcFile.Close()
+
+	destFile, err := os.Create(dest)
+	if err != nil {
+		log.Fatal(err)
+		return err
+	}
+	defer destFile.Close()
+
+	_, err = io.Copy(destFile, srcFile)
+	if err != nil {
+		log.Fatal(err)
+		return err
+	}
+
+	return nil
+}
+
+func CopyReplaceFile(src string, dest string, forceReplace bool) error {
+	if forceReplace {
+		RemoveFile(dest)
+	}
+
+	ret := CopyFile(src, dest)
+	return ret
+}
+
+func CopyReplaceFileAndDeleteSource(src string, dest string, forceReplace bool, forceDeleteSrc bool) error {
+	if forceReplace {
+		RemoveFile(dest) //remove destination file
+	}
+
+	ret := CopyFile(src, dest)
+
+	if forceDeleteSrc {
+		RemoveFile(src) //after copy finished, delete source file
+	}
+	return ret
+}
+
+func RemoveFile(filePath string) error {
+	var err error
+	if FileExist(filePath) {
+		err = os.Remove(filePath)
+		fmt.Println("Remove file:'", filePath, "' is done.")
+	} else {
+		fmt.Println("Remove file:'", filePath, "' is done, but file does not exist.")
+	}
+
+	if err != nil {
+		log.Fatal(err)
+		return err
+	}
+
+	return nil
+}
+
+func MoveFileAndReplace(src string, dest string, forceReplace bool) error {
+	if forceReplace {
+		RemoveFile(dest)
+	}
+
+	err := os.Rename(src, dest)
+	if err != nil {
+		log.Fatal(err)
+		return err
+	}
+
+	return nil
+}
+
+func CreateFolderIfNotExist(folderPath string) error {
+	_, err := os.Stat(folderPath)
+	if os.IsNotExist(err) {
+		err := os.Mkdir(folderPath, 0755)
+		if err != nil {
+			return err
+		}
+		fmt.Println("Folder created:", folderPath)
+	} else if err != nil {
+		return err
+	} else {
+		fmt.Println("Folder already exists:", folderPath)
+	}
+	return nil
+}
+
+// /////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// /////////////////////////////////////////////////////////////////////////////////////////////////////
+// Terminal manipulation functions
+// /////////////////////////////////////////////////////////////////////////////////////////////////////
 func runCmd(name string, arg ...string) {
 	cmd := exec.Command(name, arg...)
 	cmd.Stdout = os.Stdout
@@ -118,20 +235,22 @@ func ClearScreen() {
 	fmt.Fprintf(os.Stdout, "\033[0;0H")
 }
 
-// //////////////////////////////////////////////////////////////////////////////////////////////////////
-// Initialization modules
 // /////////////////////////////////////////////////////////////////////////////////////////////////////
-func initializeMyUtil() bool {
-	//fmt.Println("Init: " + strconv.FormatBool(isInitialize))
-	if isInitialize {
-		return true
-	}
-	if !FileExist(AppIni) {
-		isInitialize = false
-		panic("File INI '" + AppIni + "' is not exist!")
-	} else {
-		isInitialize = true
-		return true
-	}
 
+// Convert a path name that include back slash to standard format of golang
+func ConvertPathBackslashToStandard(pathWithBackSlash string) string {
+	standardPath := strings.ReplaceAll(pathWithBackSlash, "\\", "/")
+	return standardPath
 }
+
+func ConvertPathStandardToBackslash(path string) string {
+	standardPath := strings.ReplaceAll(path, "/", "\\")
+	return standardPath
+}
+
+func TrimAll(str string) string {
+	trimmedStr := strings.TrimSpace(str)
+	return trimmedStr
+}
+
+// /////////////////////////////////////////////////////////////////////////////////////////////////////
